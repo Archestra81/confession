@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Share anonymous confessions safely and privately">
+  <title>WhisperWall | Anonymous Confessions</title>
+
+  <!-- Tailwind Play CDN: intended for development/prototyping -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"]
+          },
+          colors: {
+            midnight: "#080b14",
+            panel: "#111827"
+          },
+          boxShadow: {
+            glow: "0 0 50px rgba(99, 102, 241, 0.18)"
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background:
+              radial-gradient(circle at 10% 0%, rgba(99, 102, 241, 0.18), transparent 28rem),
+              radial-gradient(circle at 95% 5%, rgba(168, 85, 247, 0.14), transparent 28rem),
+              #080b14;
+    }
+
+    .glass {
+      background: rgba(17, 24, 39, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      backdrop-filter: blur(18px);
+    }
+
+    .toast-in {
+      animation: toast-in 180ms ease-out forwards;
+    }
+
+    .toast-out {
+      animation: toast-out 180ms ease-in forwards;
+    }
+
+    @keyframes toast-in {
+      from {
+        opacity: 0;
+        transform: translateY(-12px) scale(0.98);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes toast-out {
+      from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+
+      to {
+        opacity: 0;
+        transform: translateY(-12px) scale(0.98);
+      }
+    }
+
+    .modal-open {
+      overflow: hidden;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen font-sans text-slate-100 antialiased">
+<!-- Header -->
+<header class="border-b border-white/10">
+  <nav class="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 lg:px-8">
+    <a href="/" class="flex items-center gap-3" aria-label="WhisperWall home">
+                <span class="grid h-10 w-10 place-items-center rounded-2xl bg-indigo-400/10 text-2xl text-indigo-300 ring-1 ring-indigo-300/20">
+                    ◌
+                </span>
+
+      <span>
+                    <span class="block text-base font-bold text-white">WhisperWall</span>
+                    <span class="block text-xs text-slate-500">Say what you cannot say aloud.</span>
+                </span>
+    </a>
+
+    <button
+            id="openAdminButton"
+            type="button"
+            class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-indigo-400/40 hover:bg-indigo-400/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+    >
+      Admin
+    </button>
+  </nav>
+</header>
+
+<!-- Main content -->
+<main class="mx-auto max-w-6xl px-5 py-12 lg:px-8 lg:py-20">
+  <section class="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
+    <!-- Intro -->
+    <div>
+      <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-300/20 bg-indigo-400/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-indigo-200">
+        <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+        Completely anonymous
+      </div>
+
+      <h1 class="max-w-3xl text-4xl font-black tracking-tight text-white sm:text-6xl">
+        Put the weight down.
+        <span class="bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">
+                        Say it here.
+                    </span>
+      </h1>
+
+      <p class="mt-6 max-w-xl text-base leading-8 text-slate-400 sm:text-lg">
+        Share a thought, secret, fear, or confession without creating an account.
+        No names. No profiles. Just your words.
+      </p>
+
+      <div class="mt-8 flex flex-wrap gap-3 text-sm text-slate-500">
+                    <span class="rounded-full border border-white/10 bg-white/5 px-3 py-2">
+                        No registration
+                    </span>
+
+        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-2">
+                        No identity shown
+                    </span>
+
+        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-2">
+                        500 characters
+                    </span>
+      </div>
+    </div>
+
+    <!-- Public confession form -->
+    <section class="glass rounded-3xl p-5 shadow-glow sm:p-7" aria-labelledby="confessionTitle">
+      <div class="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-300">
+            Your private moment
+          </p>
+
+          <h2 id="confessionTitle" class="mt-2 text-2xl font-bold text-white">
+            What is on your mind?
+          </h2>
+        </div>
+
+        <span class="rounded-xl bg-white/5 px-3 py-2 text-xs text-slate-500">
+                        Anonymous
+                    </span>
+      </div>
+
+      <form id="confessionForm" novalidate>
+        <label for="content" class="sr-only">
+          Your anonymous confession
+        </label>
+
+        <textarea
+                id="content"
+                name="content"
+                maxlength="500"
+                rows="8"
+                required
+                placeholder="Write freely. This space is yours..."
+                class="w-full resize-none rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-base leading-7 text-white outline-none transition placeholder:text-slate-600 focus:border-indigo-400/70 focus:ring-4 focus:ring-indigo-400/10"
+        ></textarea>
+
+        <div class="mt-3 flex items-center justify-between gap-4 text-xs">
+                        <span class="text-slate-500">
+                            Please avoid sharing sensitive personal information.
+                        </span>
+
+          <span id="characterCounter" class="shrink-0 font-semibold text-slate-400">
+                            0 / 500
+                        </span>
+        </div>
+
+        <button
+                id="sendButton"
+                type="submit"
+                class="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-500 px-5 py-3.5 font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span id="sendButtonText">Send Anonymously</span>
+
+          <svg
+                  id="sendSpinner"
+                  class="hidden h-5 w-5 animate-spin"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+          >
+            <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+            ></circle>
+
+            <path
+                    class="opacity-90"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+            ></path>
+          </svg>
+        </button>
+      </form>
+
+      <p class="mt-4 text-center text-xs leading-5 text-slate-600">
+        Do not submit threats, illegal content, or another person's private information.
+      </p>
+    </section>
+  </section>
+
+  <section class="mt-20 border-t border-white/10 pt-8">
+    <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+      <div>
+        <h2 class="text-lg font-bold text-white">A small act of honesty</h2>
+        <p class="mt-1 text-sm text-slate-500">
+          Your message goes directly to the platform administrator.
+        </p>
+      </div>
+
+      <span class="text-xs text-slate-600">
+                    WhisperWall · Anonymous by design
+                </span>
+    </div>
+  </section>
+</main>
+
+<!-- Toast notifications -->
+<div
+        id="toastContainer"
+        class="fixed right-5 top-5 z-[100] flex w-[calc(100%-2.5rem)] max-w-sm flex-col gap-3"
+        aria-live="polite"
+        aria-atomic="true"
+></div>
+
+<!-- Admin modal -->
+<div
+        id="adminModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 px-5 py-8 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="adminModalTitle"
+>
+  <div class="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-panel shadow-2xl shadow-black/50">
+    <!-- Modal header -->
+    <div class="flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-7">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-300">
+          Restricted area
+        </p>
+
+        <h2 id="adminModalTitle" class="mt-1 text-xl font-bold text-white">
+          Admin panel
+        </h2>
+      </div>
+
+      <button
+              id="closeAdminButton"
+              type="button"
+              aria-label="Close admin panel"
+              class="grid h-10 w-10 place-items-center rounded-xl text-2xl text-slate-500 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+      >
+        &times;
+      </button>
+    </div>
+
+    <!-- Admin login view -->
+    <section id="adminLoginView" class="p-5 sm:p-7">
+      <div class="mx-auto max-w-md">
+        <div class="mb-6 grid h-14 w-14 place-items-center rounded-2xl bg-indigo-400/10 text-2xl ring-1 ring-indigo-300/20">
+          🔐
+        </div>
+
+        <h3 class="text-2xl font-bold text-white">
+          Administrator sign in
+        </h3>
+
+        <p class="mt-2 text-sm leading-6 text-slate-500">
+          Enter the configured admin passcode to manage submitted confessions.
+        </p>
+
+        <form id="adminLoginForm" class="mt-6" novalidate>
+          <label for="adminPasscode" class="mb-2 block text-sm font-semibold text-slate-300">
+            Secret passcode
+          </label>
+
+          <input
+                  id="adminPasscode"
+                  type="password"
+                  autocomplete="current-password"
+                  required
+                  placeholder="Enter passcode"
+                  class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3.5 text-white outline-none transition placeholder:text-slate-600 focus:border-indigo-400/70 focus:ring-4 focus:ring-indigo-400/10"
+          >
+
+          <button
+                  type="submit"
+                  class="mt-4 w-full rounded-2xl bg-indigo-500 px-5 py-3.5 font-bold text-white transition hover:bg-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-400/30"
+          >
+            Continue
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Admin message view -->
+    <section id="adminMessagesView" class="hidden min-h-0 flex-1 flex-col">
+      <div class="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-7">
+        <div>
+          <h3 class="font-bold text-white">
+            Submitted confessions
+          </h3>
+
+          <p id="adminMessageCount" class="mt-1 text-xs text-slate-500">
+            Loading...
+          </p>
+        </div>
+
+        <button
+                id="logoutButton"
+                type="button"
+                class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:bg-white/10 hover:text-white"
+        >
+          Sign out
+        </button>
+      </div>
+
+      <div
+              id="adminMessagesList"
+              class="min-h-0 space-y-3 overflow-y-auto p-5 sm:p-7"
+      ></div>
+    </section>
+  </div>
+</div>
+
+<script>
+  "use strict";
+
+  const MAX_CHARS = 500;
+  const ADMIN_HEADER = "X-Admin-Passcode";
+
+  const confessionForm = document.getElementById("confessionForm");
+  const contentInput = document.getElementById("content");
+  const characterCounter = document.getElementById("characterCounter");
+  const sendButton = document.getElementById("sendButton");
+  const sendButtonText = document.getElementById("sendButtonText");
+  const sendSpinner = document.getElementById("sendSpinner");
+
+  const toastContainer = document.getElementById("toastContainer");
+
+  const adminModal = document.getElementById("adminModal");
+  const openAdminButton = document.getElementById("openAdminButton");
+  const closeAdminButton = document.getElementById("closeAdminButton");
+  const adminLoginView = document.getElementById("adminLoginView");
+  const adminMessagesView = document.getElementById("adminMessagesView");
+  const adminLoginForm = document.getElementById("adminLoginForm");
+  const adminPasscodeInput = document.getElementById("adminPasscode");
+  const adminMessagesList = document.getElementById("adminMessagesList");
+  const adminMessageCount = document.getElementById("adminMessageCount");
+  const logoutButton = document.getElementById("logoutButton");
+
+  let adminPasscode = "";
+
+  /**
+   * Updates the textarea character counter.
+   */
+  function updateCharacterCounter() {
+    const count = contentInput.value.length;
+
+    characterCounter.textContent = `${count} / ${MAX_CHARS}`;
+
+    characterCounter.classList.remove(
+            "text-slate-400",
+            "text-amber-300",
+            "text-rose-300"
+    );
+
+    if (count >= MAX_CHARS) {
+      characterCounter.classList.add("text-rose-300");
+    } else if (count >= MAX_CHARS * 0.8) {
+      characterCounter.classList.add("text-amber-300");
+    } else {
+      characterCounter.classList.add("text-slate-400");
+    }
+  }
+
+  /**
+   * Escapes text before inserting it into HTML.
+   */
+  function escapeHtml(value) {
+    const element = document.createElement("div");
+    element.textContent = String(value ?? "");
+    return element.innerHTML;
+  }
+
+  /**
+   * Displays a temporary status toast.
+   */
+  function showToast(message, type = "info") {
+    const styles = {
+      success: {
+        wrapper: "border-emerald-400/20 bg-emerald-400/10 text-emerald-100",
+        icon: "✓"
+      },
+      error: {
+        wrapper: "border-rose-400/20 bg-rose-400/10 text-rose-100",
+        icon: "!"
+      },
+      info: {
+        wrapper: "border-indigo-400/20 bg-indigo-400/10 text-indigo-100",
+        icon: "i"
+      }
+    };
+
+    const style = styles[type] || styles.info;
+    const toast = document.createElement("div");
+
+    toast.className = `toast-in flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm shadow-xl backdrop-blur ${style.wrapper}`;
+
+    toast.innerHTML = `
+                <span class="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-black">
+                    ${style.icon}
+                </span>
+                <p class="leading-5">${escapeHtml(message)}</p>
+            `;
+
+    toastContainer.appendChild(toast);
+
+    window.setTimeout(() => {
+      toast.classList.remove("toast-in");
+      toast.classList.add("toast-out");
+
+      window.setTimeout(() => toast.remove(), 200);
+    }, 4500);
+  }
+
+  /**
+   * Formats a backend timestamp for the user's local timezone.
+   */
+  function formatTimestamp(timestamp) {
+    if (!timestamp) {
+      return "Unknown time";
+    }
+
+    const date = new Date(timestamp);
+
+    if (Number.isNaN(date.getTime())) {
+      return "Unknown time";
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(date);
+  }
+
+  /**
+   * Sets the public submission button loading state.
+   */
+  function setSubmitLoading(isLoading) {
+    sendButton.disabled = isLoading;
+    sendSpinner.classList.toggle("hidden", !isLoading);
+    sendButtonText.textContent = isLoading
+            ? "Sending..."
+            : "Send Anonymously";
+  }
+
+  /**
+   * Sends a confession to POST /api/confessions.
+   */
+  async function submitConfession(event) {
+    event.preventDefault();
+
+    const content = contentInput.value.trim();
+
+    if (!content) {
+      showToast("Please write something before sending.", "error");
+      contentInput.focus();
+      return;
+    }
+
+    if (content.length > MAX_CHARS) {
+      showToast(`Your confession must be ${MAX_CHARS} characters or fewer.`, "error");
+      return;
+    }
+
+    setSubmitLoading(true);
+
+    try {
+      const response = await fetch("/api/confessions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({ content })
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(
+                errorBody?.error || "The confession could not be sent."
+        );
+      }
+
+      contentInput.value = "";
+      updateCharacterCounter();
+      showToast("Your confession was sent anonymously.", "success");
+    } catch (error) {
+      console.error("Confession submission failed:", error);
+      showToast(
+              error.message || "Unable to send confession. Please try again.",
+              "error"
+      );
+    } finally {
+      setSubmitLoading(false);
+    }
+  }
+
+  /**
+   * Opens the admin modal.
+   */
+  function openAdminModal() {
+    adminModal.classList.remove("hidden");
+    adminModal.classList.add("flex");
+    document.body.classList.add("modal-open");
+
+    if (adminPasscode) {
+      showMessagesView();
+      loadAdminMessages();
+    } else {
+      showLoginView();
+    }
+  }
+
+  /**
+   * Closes the admin modal.
+   */
+  function closeAdminModal() {
+    adminModal.classList.add("hidden");
+    adminModal.classList.remove("flex");
+    document.body.classList.remove("modal-open");
+  }
+
+  /**
+   * Shows the admin login view.
+   */
+  function showLoginView() {
+    adminLoginView.classList.remove("hidden");
+    adminMessagesView.classList.add("hidden");
+    adminMessagesView.classList.remove("flex");
+
+    window.setTimeout(() => adminPasscodeInput.focus(), 50);
+  }
+
+  /**
+   * Shows the admin messages view.
+   */
+  function showMessagesView() {
+    adminLoginView.classList.add("hidden");
+    adminMessagesView.classList.remove("hidden");
+    adminMessagesView.classList.add("flex");
+  }
+
+  /**
+   * Loads messages from GET /api/admin/confessions.
+   */
+  async function loadAdminMessages() {
+    adminMessageCount.textContent = "Loading...";
+
+    adminMessagesList.innerHTML = `
+                <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center text-sm text-slate-500">
+                    Loading confessions...
+                </div>
+            `;
+
+    try {
+      const response = await fetch("/api/admin/confessions", {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          [ADMIN_HEADER]: adminPasscode
+        }
+      });
+
+      if (response.status === 401) {
+        adminPasscode = "";
+        adminPasscodeInput.value = "";
+        showLoginView();
+        showToast("Invalid or expired admin passcode.", "error");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Could not load administrator messages.");
+      }
+
+      const confessions = await response.json();
+      renderAdminMessages(confessions);
+    } catch (error) {
+      console.error("Loading admin messages failed:", error);
+
+      adminMessageCount.textContent = "Unable to load";
+
+      adminMessagesList.innerHTML = `
+                    <div class="rounded-2xl border border-rose-400/20 bg-rose-400/10 p-6 text-center text-sm text-rose-100">
+                        ${escapeHtml(error.message || "Unable to load messages.")}
+                    </div>
+                `;
+
+      showToast(
+              error.message || "Unable to load messages.",
+              "error"
+      );
+    }
+  }
+
+  /**
+   * Renders administrator message cards.
+   */
+  function renderAdminMessages(confessions) {
+    const messages = Array.isArray(confessions) ? confessions : [];
+
+    adminMessageCount.textContent =
+            `${messages.length} message${messages.length === 1 ? "" : "s"}`;
+
+    if (messages.length === 0) {
+      adminMessagesList.innerHTML = `
+                    <div class="rounded-2xl border border-dashed border-white/10 p-10 text-center">
+                        <div class="text-3xl">🌙</div>
+                        <p class="mt-3 font-semibold text-slate-300">No confessions yet</p>
+                        <p class="mt-1 text-sm text-slate-600">
+                            New anonymous messages will appear here.
+                        </p>
+                    </div>
+                `;
+      return;
+    }
+
+    adminMessagesList.innerHTML = messages.map((confession) => `
+                <article class="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-indigo-300/20 hover:bg-white/[0.05] sm:p-5">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="min-w-0 flex-1">
+                            <p class="whitespace-pre-wrap break-words text-sm leading-7 text-slate-200">
+                                ${escapeHtml(confession.content)}
+                            </p>
+
+                            <p class="mt-4 text-xs text-slate-600">
+                                ${escapeHtml(formatTimestamp(confession.timestamp))}
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            data-delete-id="${escapeHtml(confession.id)}"
+                            class="shrink-0 rounded-xl border border-rose-400/20 bg-rose-400/5 px-3 py-2 text-xs font-bold text-rose-300 transition hover:bg-rose-400/15 focus:outline-none focus:ring-2 focus:ring-rose-400/40"
+                        >
+                            Delete
+                        </button>
+                    </div>
+                </article>
+            `).join("");
+  }
+
+  /**
+   * Deletes a confession through DELETE /api/admin/confessions/{id}.
+   */
+  async function deleteConfession(id) {
+    if (!window.confirm("Delete this confession permanently?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+              `/api/admin/confessions/${encodeURIComponent(id)}`,
+              {
+                method: "DELETE",
+                headers: {
+                  [ADMIN_HEADER]: adminPasscode
+                }
+              }
+      );
+
+      if (response.status === 401) {
+        adminPasscode = "";
+        adminPasscodeInput.value = "";
+        showLoginView();
+        showToast("Your admin session is no longer valid.", "error");
+        return;
+      }
+
+      if (response.status === 404) {
+        showToast("That confession no longer exists.", "error");
+        await loadAdminMessages();
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Could not delete the confession.");
+      }
+
+      showToast("Confession deleted.", "success");
+      await loadAdminMessages();
+    } catch (error) {
+      console.error("Deleting confession failed:", error);
+      showToast(
+              error.message || "Unable to delete confession.",
+              "error"
+      );
+    }
+  }
+
+  /**
+   * Authenticates the admin by requesting the protected list endpoint.
+   */
+  async function loginAdmin(event) {
+    event.preventDefault();
+
+    const passcode = adminPasscodeInput.value.trim();
+
+    if (!passcode) {
+      showToast("Enter the admin passcode.", "error");
+      adminPasscodeInput.focus();
+      return;
+    }
+
+    adminPasscode = passcode;
+    showMessagesView();
+    await loadAdminMessages();
+  }
+
+  /**
+   * Clears the in-memory admin passcode.
+   */
+  function logoutAdmin() {
+    adminPasscode = "";
+    adminPasscodeInput.value = "";
+    adminMessagesList.innerHTML = "";
+    showLoginView();
+    showToast("Signed out of the admin panel.", "info");
+  }
+
+  contentInput.addEventListener("input", updateCharacterCounter);
+  confessionForm.addEventListener("submit", submitConfession);
+
+  openAdminButton.addEventListener("click", openAdminModal);
+  closeAdminButton.addEventListener("click", closeAdminModal);
+  adminLoginForm.addEventListener("submit", loginAdmin);
+  logoutButton.addEventListener("click", logoutAdmin);
+
+  adminMessagesList.addEventListener("click", (event) => {
+    const deleteButton = event.target.closest("[data-delete-id]");
+
+    if (deleteButton) {
+      deleteConfession(deleteButton.dataset.deleteId);
+    }
+  });
+
+  adminModal.addEventListener("click", (event) => {
+    if (event.target === adminModal) {
+      closeAdminModal();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (
+            event.key === "Escape" &&
+            !adminModal.classList.contains("hidden")
+    ) {
+      closeAdminModal();
+    }
+  });
+
+  updateCharacterCounter();
+</script>
+</body>
+</html>
