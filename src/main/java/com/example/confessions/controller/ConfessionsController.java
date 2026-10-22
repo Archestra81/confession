@@ -1,7 +1,7 @@
 package com.example.confessions.controller;
 
-import com.example.confessions.entity.Confessions;
-import com.example.confessions.repository.ConfessionsRepository;
+import com.example.confessions.entity.Confession;
+import com.example.confessions.repository.ConfessionRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -22,93 +22,57 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 
-/**
- * REST controller for creating and administrating confessions.
- *
- * Public endpoint:
- * POST /api/confessions
- *
- * Admin endpoints:
- * GET /api/admin/confessions
- * DELETE /api/admin/confessions/{id}
- *
- * Admin authentication uses the X-Admin-Passcode request header.
- */
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-public class ConfessionsController {
+public class ConfessionController {
 
-    private static final String ADMIN_PASSCODE_HEADER = "X-Admin-Passcode";
+    private static final String ADMIN_HEADER = "X-Admin-Passcode";
 
-    private final ConfessionsRepository confessionRepository;
+    private final ConfessionRepository confessionRepository;
 
-    /**
-     * Admin passcode loaded from application.properties.
-     *
-     * In production, provide it through the ADMIN_PASSCODE environment variable.
-     */
     @Value("${app.admin.passcode}")
-    private String adminPasscode;
+    private String configuredAdminPasscode;
 
-    /**
-     * Creates a new anonymous confession.
-     *
-     * @param request request body containing confession content
-     * @return persisted confession
-     */
     @PostMapping("/confessions")
-    public ResponseEntity<Confessions> createConfession(
+    public ResponseEntity<Confession> createConfession(
             @Valid @RequestBody CreateConfessionRequest request) {
 
-        Confessions confession = Confessions.builder()
+        Confession confession = Confession.builder()
                 .content(request.content().trim())
                 .build();
 
-        Confessions savedConfession = confessionRepository.save(confession);
+        Confession saved = confessionRepository.save(confession);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(savedConfession);
+                .body(saved);
     }
 
-    /**
-     * Returns all confessions for an authenticated administrator.
-     *
-     * @param providedPasscode passcode supplied through X-Admin-Passcode
-     * @return confessions ordered from newest to oldest
-     */
     @GetMapping("/admin/confessions")
-    public ResponseEntity<?> getAllConfessions(
-            @RequestHeader(value = ADMIN_PASSCODE_HEADER, required = false)
+    public ResponseEntity<?> getConfessions(
+            @RequestHeader(value = ADMIN_HEADER, required = false)
             String providedPasscode) {
 
-        if (!isValidAdminPasscode(providedPasscode)) {
-            return unauthorizedResponse();
+        if (!isValidPasscode(providedPasscode)) {
+            return unauthorized();
         }
 
-        List<Confessions> confessions = confessionRepository.findAll(
+        List<Confession> confessions = confessionRepository.findAll(
                 Sort.by(Sort.Direction.DESC, "timestamp")
         );
 
         return ResponseEntity.ok(confessions);
     }
 
-    /**
-     * Deletes a confession for an authenticated administrator.
-     *
-     * @param id confession identifier
-     * @param providedPasscode passcode supplied through X-Admin-Passcode
-     * @return no-content response when deletion succeeds
-     */
     @DeleteMapping("/admin/confessions/{id}")
     public ResponseEntity<?> deleteConfession(
             @PathVariable Long id,
-            @RequestHeader(value = ADMIN_PASSCODE_HEADER, required = false)
+            @RequestHeader(value = ADMIN_HEADER, required = false)
             String providedPasscode) {
 
-        if (!isValidAdminPasscode(providedPasscode)) {
-            return unauthorizedResponse();
+        if (!isValidPasscode(providedPasscode)) {
+            return unauthorized();
         }
 
         if (!confessionRepository.existsById(id)) {
@@ -122,38 +86,23 @@ public class ConfessionsController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Compares the supplied passcode with the configured passcode.
-     *
-     * String.equals is intentionally called on the configured value to avoid
-     * a NullPointerException when the request header is missing.
-     */
-    private boolean isValidAdminPasscode(String providedPasscode) {
+    private boolean isValidPasscode(String providedPasscode) {
         return providedPasscode != null
                 && !providedPasscode.isBlank()
-                && adminPasscode.equals(providedPasscode);
+                && configuredAdminPasscode.equals(providedPasscode);
     }
 
-    /**
-     * Provides a consistent response for failed administrator authentication.
-     */
-    private ResponseEntity<Map<String, String>> unauthorizedResponse() {
+    private ResponseEntity<Map<String, String>> unauthorized() {
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
                 .body(Map.of("error", "Invalid or missing admin passcode"));
     }
 
-    /**
-     * Request DTO for creating a confession.
-     *
-     * Records are immutable and prevent accidental modification after
-     * deserialization.
-     */
     public record CreateConfessionRequest(
             @NotBlank(message = "Confession content must not be blank")
             @Size(
-                    max = 5000,
-                    message = "Confession content must not exceed 5000 characters"
+                    max = 500,
+                    message = "Confession content must not exceed 500 characters"
             )
             String content
     ) {

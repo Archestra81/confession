@@ -15,9 +15,6 @@ import lombok.Setter;
 
 import java.time.Instant;
 
-/**
- * Represents an anonymous confession submitted by a user.
- */
 @Entity
 @Table(name = "confessions")
 @Getter
@@ -25,30 +22,18 @@ import java.time.Instant;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Confessions {
+public class Confession {
 
-    /**
-     * Database-generated primary key.
-     */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /**
-     * The confession text.
-     */
     @Column(nullable = false, length = 5000)
     private String content;
 
-    /**
-     * Time at which the confession was created.
-     */
     @Column(nullable = false, updatable = false)
     private Instant timestamp;
 
-    /**
-     * Automatically assigns the creation timestamp before persistence.
-     */
     @PrePersist
     protected void onCreate() {
         if (timestamp == null) {
